@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to NutriWise</title>
+    <link rel="stylesheet" href="../static/home.css">
+</head>
+<body>
+    <header>
+        <h1>Welcome to NutriWise, {{ username }}!</h1>
+        <p>Your Personalized Nutrition Companion</p>
+    </header>
+    <nav>
+        <ul>
+            <li><a href="{{ url_for('home2_page') }}">Home</a></li>
+            <li><a href="#">About Us</a></li>
+            <li><a href="#">Features</a></li>
+            <li><a href="#">Reviews</a></li>
+            <li><a href="#">Contact</a></li>
+        </ul>
+    </nav>
+    <main>
+        <h2>Welcome, {{ username }}!</h2>
+
+        <!-- Search Form -->
+        <form method="POST" action="{{ url_for('home2_page') }}">
+            <label for="search_query">Search for Grocery Item:</label>
+            <input type="text" id="search_query" name="search_query" required>
+            <button type="submit">Search</button>
+        </form>
+
+        <!-- Display Search Results -->
+        {% if result %}
+            <label for="item_dropdown">Select Item:</label>
+            <select id="item_dropdown" name="item_dropdown">
+                {% for item, calories, category in result %}
+                <option value="{{ item }}" data-category="{{ category }}" data-nix-item-id="{{ nix_item_id }}">{{ item }} ({{ category }})</option>
+                {% endfor %}
+            </select>
+            <button type="button" onclick="getCalories()">Get Calories</button>
+            <div id="calories_result">
+                {% if selected_item %}
+                    <p>Calories for {{ selected_item.name }} ({{ category }}): {{ selected_item.calories }}</p>
+                {% endif %}
+            </div>
+            <button type="button" onclick="getNutritionInfo()">Get Nutrition Info</button>
+            <div id="nutrition_info_result" style="display: none;">
+                <p id="nutrition_info_text"></p>
+                <ul>
+                    <li>Calories: <span id="calories_value"></span></li>
+                    <li>Protein: <span id="protein_value"></span></li>
+                    <li>Carbohydrates: <span id="carbs_value"></span></li>
+                    <li>Fat: <span id="fat_value"></span></li>
+                </ul>
+            </div>
+            <script>
+                var resultData = {{ result | tojson }};
+                var selected_item = null;
+
+                function getCalories() {
+                    var selectedFood = document.getElementById("item_dropdown").value;
+                    var selectedResult = resultData.find(item => item[0] === selectedFood);
+
+                    if (selectedResult) {
+                        var caloriesResult = "<p>Calories for " + selectedResult[0] + " (" + selectedResult[2] + "): " + selectedResult[1] + "</p>";
+                        document.getElementById("calories_result").innerHTML = caloriesResult;
+                    } else {
+                        document.getElementById("calories_result").innerHTML = "<p>No data available for the selected item.</p>";
+                    }
+                }
+
+                function getNutritionInfo() {
+                    
+                    var selectedFood = document.getElementById("item_dropdown").value;
+                    var selectedCategory = document.getElementById("item_dropdown").options[document.getElementById("item_dropdown").selectedIndex].getAttribute("data-category");
+                    if(selectedCategory === "Common"){
+                        fetch('/get_nutrition_info', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                food_name: selectedFood,
+                                category: selectedCategory,
+                            }),
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            var nutritionInfoText = document.getElementById("nutrition_info_text");
+                            var caloriesValue = document.getElementById("calories_value");
+                            var proteinValue = document.getElementById("protein_value");
+                            var carbsValue = document.getElementById("carbs_value");
+                            var fatValue = document.getElementById("fat_value");
+
+                            nutritionInfoText.innerHTML = "Nutrition Information for " + selectedFood + " (" + selectedCategory + "):";
+                            caloriesValue.innerHTML = data.nf_calories;
+                            proteinValue.innerHTML = data.nf_protein;
+                            carbsValue.innerHTML = data.nf_total_carbohydrate;
+                            fatValue.innerHTML = data.nf_total_fat;
+
+                            document.getElementById("nutrition_info_result").style.display = "block";
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            document.getElementById("nutrition_info_result").innerHTML = "<p>Error fetching nutrition information.</p>";
+                        });
+                    }
+                    else if(selectedCategory === "Branded"){
+                        // Make an AJAX request to get nutrition information for branded items
+                        fetch('/get_brand_nutrition_info', {
+                            method: 'POST', 
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                nix_item_id: selectedNixItemId,
+                            }),
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            // Update the nutrition information for branded items
+                            var nutritionInfoResult = "<p>Nutrition Information for " + selectedFood + " (Branded):</p>";
+                            nutritionInfoResult += "<ul>";
+                            nutritionInfoResult += "<li>Calories: " + data.nf_calories + "</li>";
+                            nutritionInfoResult += "<li>Protein: " + data.nf_protein + "</li>";
+                            nutritionInfoResult += "<li>Carbohydrates: " + data.nf_total_carbohydrate + "</li>";
+                            nutritionInfoResult += "<li>Fat: " + data.nf_total_fat + "</li>";
+                            nutritionInfoResult += "</ul>";
+
+                            document.getElementById("nutrition_info_result").innerHTML = nutritionInfoResult;
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            document.getElementById("nutrition_info_result").innerHTML = "<p>Error fetching nutrition information.</p>";
+                        });
+                    }
+                }
+            </script>
+        {% elif error %}
+            <p>{{ error }}</p>
+        {% endif %}
+    </main>
+    <section class="chatbot">
+        <h2>Chat with NutriWise Assistant</h2>
+        <!-- Add your chatbot interface here -->
+        <div id="chatbot-container">
+            <!-- Your chatbot UI goes here -->
+        </div>
+    </section>
+    <!-- Other content goes here -->
+    <footer>
+        &copy; 2023 NutriWise - Your Nutrition Companion
+    </footer>
+</body>
+</html>
